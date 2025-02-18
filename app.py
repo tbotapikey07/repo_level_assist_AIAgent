@@ -27,9 +27,17 @@ import json
 # Load environment variables
 load_dotenv()
 
-# Configure Google API
-os.environ["GOOGLE_API_KEY"] = ''
-genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+
+
+# Configure Gemini API
+api_key_secrectpass = st.secrets["GOOGLE_API_KEY"]
+os.environ["GOOGLE_API_KEY"] = api_key_secrectpass
+genai.configure(api_key=api_key_secrectpass)
+
+api_key_groq_secrectpass = st.secrets["GROQ_API_KEY"]
+os.environ["GROQ_API_KEY"] = api_key_groq_secrectpass
+
+
 
 # Initialize database
 db_session = init_db()
