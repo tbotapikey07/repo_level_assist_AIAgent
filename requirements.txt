@@ -13,3 +13,4 @@ groq
 loguru
 pandas
 matplotlib
+SQLAlchemy
