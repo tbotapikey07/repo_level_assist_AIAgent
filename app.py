@@ -357,16 +357,7 @@ def initialize_agents(vector_store=None):
 def main():
     st.title('CodeCzar - AI-Powered Code Analysis Platform')
     st.sidebar.info("Only for Learning Purpose, Developed by - Sudhakar G.")
-    hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            ._profileContainer_gzau3_53 {visibility: hidden !important;}
-            ._profilePreview_gzau3_63 {visibility: hidden !important;}
-            .stAppToolbar st-emotion-cache-15ecox0 ezrtsby0 {visibility: hidden !important;}
-            </style>
-            """
-    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    
     
     # Initialize components
     vector_db_dir = "vector_dbs"
@@ -648,3 +639,13 @@ def main():
 
 if __name__ == '__main__':
     main()
+    hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            ._profileContainer_gzau3_53 {visibility: hidden !important;}
+            ._profilePreview_gzau3_63 {visibility: hidden !important;}
+            .stAppToolbar st-emotion-cache-15ecox0 ezrtsby0 {visibility: hidden !important;}
+            </style>
+            """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
