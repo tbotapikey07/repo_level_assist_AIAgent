@@ -448,38 +448,38 @@ def main():
                 st.error(f"Vector database file not found: {faiss_index_path}")
                 return
             
-            # Load selected database
-            try:
-                vector_store.load_index(faiss_index_path)
-                st.success(f"Loaded {vector_store.index.ntotal} documents")
+        #     # Load selected database
+        #     try:
+        #         vector_store.load_index(faiss_index_path)
+        #         st.success(f"Loaded {vector_store.index.ntotal} documents")
                 
-                # Debug database details
-                st.write("Database Details:")
-                st.write(f"Total documents: {len(vector_store.documents)}")
-                st.write(f"Index size: {vector_store.index.ntotal}")
+        #         # Debug database details
+        #         st.write("Database Details:")
+        #         st.write(f"Total documents: {len(vector_store.documents)}")
+        #         st.write(f"Index size: {vector_store.index.ntotal}")
                 
-                # Test search functionality
-                test_query = st.text_input("Test Vector Search", 
-                    help="Enter a query to test vector search functionality")
+        #         # Test search functionality
+        #         test_query = st.text_input("Test Vector Search", 
+        #             help="Enter a query to test vector search functionality")
                 
-                if st.button("Perform Search"):
-                    if test_query:
-                        search_results = vector_store.search(test_query, k=5)
+        #         if st.button("Perform Search"):
+        #             if test_query:
+        #                 search_results = vector_store.search(test_query, k=5)
                         
-                        st.write("Search Results:")
-                        for idx, result in enumerate(search_results, 1):
-                            st.write(f"Result {idx}:")
-                            st.write(f"  Path: {result['path']}")
-                            st.write(f"  Type: {result['type']}")
-                            st.write(f"  Size: {result['size']} bytes")
-                            st.write(f"  Distance: {result['distance']}")
-                            st.write(f"  Content Preview: {result['content'][:200]}...")
-                    else:
-                        st.warning("Please enter a search query")
-            except Exception as e:
-                st.error(f"Processing failed: {str(e)}")
-        else:
-            st.warning("No vector databases found. Create a new one!")
+        #                 st.write("Search Results:")
+        #                 for idx, result in enumerate(search_results, 1):
+        #                     st.write(f"Result {idx}:")
+        #                     st.write(f"  Path: {result['path']}")
+        #                     st.write(f"  Type: {result['type']}")
+        #                     st.write(f"  Size: {result['size']} bytes")
+        #                     st.write(f"  Distance: {result['distance']}")
+        #                     st.write(f"  Content Preview: {result['content'][:200]}...")
+        #             else:
+        #                 st.warning("Please enter a search query")
+        #     except Exception as e:
+        #         st.error(f"Processing failed: {str(e)}")
+        # else:
+        #     st.warning("No vector databases found. Create a new one!")
         
         # Model selection
         st.subheader("Model Configuration")
@@ -649,3 +649,20 @@ if __name__ == '__main__':
             </style>
             """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    # Create a style block
+    st.markdown(
+        """
+        <style>
+        ._profileContainer_gzau3_53 {
+           visibility: hidden !important;
+        }
+        ._profilePreview_gzau3_63 {
+           visibility: hidden !important;
+        }
+        .stAppToolbar.st-emotion-cache-15ecox0.ezrtsby0 {
+           visibility: hidden !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
