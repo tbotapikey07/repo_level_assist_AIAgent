@@ -375,8 +375,8 @@ def main():
         
         # Project directory
         project_dir = st.text_input("Project Directory", 
-            value="Local Project Folder Path , GitHub asscess disabled",
-            help="Local Project Folder Path , GitHub asscess disabled")
+            value="Local Project Folder Path , GitHub access  disabled",
+            help="Local Project Folder Path , GitHub access  disabled")
         
         # Vector Database Management
         st.subheader("knowledge  Database Management")
