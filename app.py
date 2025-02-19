@@ -357,6 +357,13 @@ def initialize_agents(vector_store=None):
 def main():
     st.title('CodeCzar - AI-Powered Code Analysis Platform')
     st.sidebar.info("Only for Learning Purpose, Developed by - Sudhakar G.")
+    hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     
     # Initialize components
     vector_db_dir = "vector_dbs"
