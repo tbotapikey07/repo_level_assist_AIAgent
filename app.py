@@ -355,7 +355,7 @@ def initialize_agents(vector_store=None):
     return agents
 
 def main():
-    st.title('CodeCzar - AI-Powered Code Analysis Platform')
+    st.title('CodeCzar - Repo-Level AI-Agent Platform')
     st.sidebar.info("Only for Learning Purpose, Developed by - Sudhakar G.")
     
     
@@ -513,7 +513,7 @@ def main():
     if st.button("Process Request"):
         if user_query:
             try:
-                with st.spinner(f"Processing with {selected_agent}..."):
+                with st.spinner(f" Think & Processing with {selected_agent}..."):
                     # Prepare input data
                     input_data = {
                         'prompt': user_query,
