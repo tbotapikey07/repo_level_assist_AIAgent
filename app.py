@@ -370,7 +370,7 @@ def main():
     agents = initialize_agents(vector_store)
     
     # Sidebar configuration
-    with st.sidebar:
+    with st.expander:
         st.title("Configuration")
         
         # Project directory
