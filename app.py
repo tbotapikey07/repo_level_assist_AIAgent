@@ -420,7 +420,7 @@ def main():
                     st.error("Please provide a valid project directory and database name")
         
         # Vector database selection and management
-        st.subheader("knowledge  Databases")
+        st.subheader("Select your knowledge Databases as Project Repo-Level ")
         db_files = [f for f in os.listdir(vector_db_dir) if f.endswith('.faiss')]
         
         # Select database
