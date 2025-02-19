@@ -355,7 +355,7 @@ def initialize_agents(vector_store=None):
     return agents
 
 def main():
-    st.title('CodeCzar - Repo-Level AI-Agent Platform')
+    st.title('CodeCzar :  Repo-Level AI-Agent Platform')
     st.sidebar.info("Only for Learning Purpose, Developed by - Sudhakar G.")
     
     
