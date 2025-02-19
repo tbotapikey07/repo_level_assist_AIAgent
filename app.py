@@ -356,6 +356,7 @@ def initialize_agents(vector_store=None):
 
 def main():
     st.title('CodeCzar - AI-Powered Code Analysis Platform')
+    st.sidebar.info("Only for Learning Purpose, Developed by - Sudhakar G.")
     
     # Initialize components
     vector_db_dir = "vector_dbs"
