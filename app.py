@@ -361,7 +361,9 @@ def main():
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
-            ._profileContainer_gzau3_53 {visibility: hidden;}
+            ._profileContainer_gzau3_53 {visibility: hidden !important;}
+            ._profilePreview_gzau3_63 {visibility: hidden !important;}
+            .stAppToolbar st-emotion-cache-15ecox0 ezrtsby0 {visibility: hidden !important;}
             </style>
             """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
