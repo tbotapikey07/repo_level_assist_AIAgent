@@ -14,8 +14,8 @@ class VectorStore:
     
     EMBEDDING_MODELS = {
         'small': 'models/embedding-001',
-        'medium': 'models/embedding-002',
-        'large': 'models/embedding-003'
+        'medium': 'models/embedding-001',
+        'large': 'models/embedding-001'
     }
     
     def __init__(
