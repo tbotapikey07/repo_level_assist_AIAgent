@@ -1,22 +1,37 @@
 import logging
 import os
+import re
 import faiss
 import numpy as np
 import pickle
-from typing import List, Dict
+from typing import List, Dict, Optional, Union
 
 import google.generativeai as genai
 import streamlit as st
 
 class VectorStore:
-    """Manages vector embeddings using FAISS for efficient similarity search."""
+    """Advanced vector store for efficient and robust semantic search."""
     
-    def __init__(self, dimension: int = 768, vector_db_path: str = "vector_dbs"):
-        """Initialize vector store with specified dimension and optional database path
+    EMBEDDING_MODELS = {
+        'small': 'models/embedding-001',
+        'medium': 'models/embedding-002',
+        'large': 'models/embedding-003'
+    }
+    
+    def __init__(
+        self, 
+        dimension: int = 768, 
+        vector_db_path: str = "vector_dbs", 
+        embedding_model: str = 'medium',
+        max_text_length: int = 2000
+    ):
+        """Initialize vector store with enhanced configuration options.
         
         Args:
-            dimension (int, optional): Embedding dimension. Defaults to 768.
-            vector_db_path (str, optional): Path to load existing vector databases. Defaults to 'vector_dbs'.
+            dimension (int): Embedding dimension. Defaults to 768.
+            vector_db_path (str): Path to load/save vector databases.
+            embedding_model (str): Size of embedding model to use.
+            max_text_length (int): Maximum text length for embeddings.
         """
         # Configure logging
         logging.basicConfig(
@@ -29,21 +44,188 @@ class VectorStore:
         )
         self.logger = logging.getLogger(self.__class__.__name__)
         
+        # Configuration
+        self.dimension = dimension
+        self.max_text_length = max_text_length
+        self.embedding_model = self.EMBEDDING_MODELS.get(
+            embedding_model, 
+            self.EMBEDDING_MODELS['medium']
+        )
+        
         # Ensure vector database directory exists
         os.makedirs(vector_db_path, exist_ok=True)
         
-        self.dimension = dimension
+        # Initialize FAISS index
         self.index = faiss.IndexFlatL2(dimension)
         self.documents = []
         
-        # Validate FAISS index creation
-        if self.index is None:
-            self.logger.error("Failed to create FAISS index")
-            raise ValueError("Could not initialize FAISS index")
-        
-        # Load vector database if path is provided
+        # Load existing database if available
         if vector_db_path:
-            self.load_vector_database(vector_db_path)
+            try:
+                self.load_vector_database(vector_db_path)
+            except Exception as e:
+                self.logger.warning(f"Could not load existing vector database: {e}")
+    
+    def _preprocess_text(self, text: str) -> str:
+        """Advanced text preprocessing for better embedding quality.
+        
+        Args:
+            text (str): Input text to preprocess
+        
+        Returns:
+            str: Cleaned and preprocessed text
+        """
+        if not isinstance(text, str):
+            return ""
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Remove special characters and normalize
+        text = re.sub(r'[^\w\s.,;:!?()[\]{}"\'`]', '', text)
+        
+        # Lowercase for consistency
+        text = text.lower()
+        
+        # Truncate to max length
+        return text[:self.max_text_length]
+    
+    def _get_embedding(self, text: str) -> np.ndarray:
+        """Generate embeddings with multiple fallback strategies.
+        
+        Args:
+            text (str): Text to generate embedding for
+        
+        Returns:
+            np.ndarray: Generated embedding or zero embedding
+        """
+        try:
+            # Validate and preprocess input
+            preprocessed_text = self._preprocess_text(text)
+            
+            if not preprocessed_text:
+                self.logger.warning("Empty text after preprocessing")
+                return np.zeros((1, self.dimension), dtype=np.float32)
+            
+            # Retrieve API key securely
+            api_key = (
+                os.getenv('GOOGLE_API_KEY') or 
+                st.secrets.get('GOOGLE_API_KEY')
+            )
+            
+            if not api_key:
+                raise ValueError("No Google API key found")
+            
+            # Configure API
+            genai.configure(api_key=api_key)
+            
+            # Generate embedding
+            result = genai.embed_content(
+                model=self.embedding_model,
+                content=preprocessed_text,
+                task_type='retrieval_document'
+            )
+            
+            # Validate and process embedding
+            if not result or 'embedding' not in result:
+                raise ValueError("No embedding generated")
+            
+            embedding = np.array(result['embedding'], dtype=np.float32)
+            
+            # Ensure correct shape
+            if embedding.ndim == 1:
+                embedding = embedding.reshape(1, -1)
+            
+            # Resize or pad embedding
+            if embedding.shape[1] != self.dimension:
+                self.logger.warning(
+                    f"Embedding dimension mismatch: "
+                    f"{embedding.shape[1]} vs {self.dimension}"
+                )
+                
+                padded_embedding = np.zeros(
+                    (1, self.dimension), 
+                    dtype=np.float32
+                )
+                
+                padded_embedding[0, :min(embedding.shape[1], self.dimension)] = (
+                    embedding[0, :min(embedding.shape[1], self.dimension)]
+                )
+                
+                embedding = padded_embedding
+            
+            return embedding
+        
+        except Exception as e:
+            self.logger.error(f"Embedding generation error: {e}")
+            return np.zeros((1, self.dimension), dtype=np.float32)
+    
+    def add_documents(
+        self, 
+        documents: List[Dict], 
+        batch_size: int = 50
+    ) -> Dict[str, int]:
+        """Enhanced document addition with batch processing.
+        
+        Args:
+            documents (List[Dict]): Documents to add
+            batch_size (int): Number of documents to process in a batch
+        
+        Returns:
+            Dict[str, int]: Processing statistics
+        """
+        stats = {
+            'total': len(documents),
+            'processed': 0,
+            'skipped': 0,
+            'errors': 0
+        }
+        
+        # Process in batches
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i+batch_size]
+            
+            for doc in batch:
+                try:
+                    content = doc.get('content', '')
+                    
+                    # Skip empty or very short documents
+                    if not content or len(content) < 10:
+                        stats['skipped'] += 1
+                        continue
+                    
+                    # Generate embedding
+                    embedding = self._get_embedding(content)
+                    
+                    # Add to FAISS index
+                    self.index.add(embedding)
+                    
+                    # Standardize document structure
+                    standardized_doc = {
+                        'metadata': {
+                            'path': doc.get('path', 'Unknown'),
+                            'type': doc.get('type', 'Unknown'),
+                            'size': doc.get('size', 0)
+                        },
+                        'content': content,
+                        'embedding': embedding.tolist()
+                    }
+                    
+                    self.documents.append(standardized_doc)
+                    stats['processed'] += 1
+                
+                except Exception as e:
+                    self.logger.error(f"Error processing document: {e}")
+                    stats['errors'] += 1
+        
+        # Log processing statistics
+        self.logger.info("Document Processing Summary:")
+        self.logger.info(f"Total documents: {stats['total']}")
+        self.logger.info(f"Processed: {stats['processed']}")
+        self.logger.info(f"Skipped: {stats['skipped']}")
+        self.logger.info(f"Errors: {stats['errors']}")
+        
+        return stats
     
     def load_vector_database(self, vector_db_path: str):
         """Load vector database from a specified directory
@@ -80,72 +262,7 @@ class VectorStore:
         except Exception as e:
             self.logger.error(f"Error loading vector database: {str(e)}")
             raise
-
-    def add_documents(self, documents: List[Dict]):
-        """Add documents to vector store with comprehensive logging and error handling"""
-        self.logger.info(f"Starting to add {len(documents)} documents to vector store")
-        
-        processed_count = 0
-        skipped_count = 0
-        error_count = 0
-        
-        for doc in documents:
-            try:
-                # Validate and preprocess content
-                content = doc.get('content', '')
-                if not content or len(content.strip()) < 10:
-                    self.logger.warning(f"Skipping document: insufficient content - {doc.get('path', 'Unknown')}")
-                    skipped_count += 1
-                    continue
-                
-                # Generate embedding with error handling
-                try:
-                    embedding = self._get_embedding(content)
-                except Exception as embed_error:
-                    self.logger.error(f"Failed to generate embedding for {doc.get('path', 'Unknown')}: {str(embed_error)}")
-                    error_count += 1
-                    continue
-                
-                # Add to FAISS index
-                try:
-                    self.index.add(embedding)
-                except Exception as index_error:
-                    self.logger.error(f"Failed to add document to index: {str(index_error)}")
-                    error_count += 1
-                    continue
-                
-                # Standardize document structure
-                standardized_doc = {
-                    'metadata': {
-                        'path': doc.get('path', 'Unknown'),
-                        'type': doc.get('type', 'Unknown'),
-                        'size': doc.get('size', 0),
-                        'is_text': doc.get('is_text', True)
-                    },
-                    'content': content,
-                    'embedding': embedding.tolist()  # Convert to list for easier serialization
-                }
-                
-                self.documents.append(standardized_doc)
-                processed_count += 1
-                
-            except Exception as e:
-                self.logger.error(f"Unexpected error adding document {doc.get('path', 'Unknown')}: {str(e)}")
-                error_count += 1
-                continue
-        
-        # Comprehensive logging of document addition
-        self.logger.info("Document Addition Summary:")
-        self.logger.info(f"Total documents processed: {processed_count}")
-        self.logger.info(f"Documents skipped: {skipped_count}")
-        self.logger.info(f"Documents with errors: {error_count}")
-        self.logger.info(f"Total documents in vector store: {len(self.documents)}")
-        
-        # Validate index and documents
-        if len(self.documents) == 0:
-            self.logger.error("No documents added to vector store")
-            raise ValueError("No documents could be added to the vector store")
-
+    
     def search(self, query: str, k: int = 5) -> List[Dict]:
         """Enhanced search with comprehensive error handling and logging."""
         self.logger.info(f"Performing enhanced vector search for query: '{query[:50]}...'")
@@ -234,7 +351,7 @@ class VectorStore:
         except Exception as e:
             self.logger.error(f"Unexpected error during vector search: {str(e)}")
             return []
-        
+    
     def save_index(self, path: str):
         """Save FAISS index and documents with comprehensive logging and error handling."""
         try:
@@ -265,7 +382,7 @@ class VectorStore:
         except Exception as e:
             self.logger.error(f"Error saving vector store: {str(e)}")
             raise
-
+    
     def load_index(self, path: str):
         """Load FAISS index and documents with comprehensive logging and error handling."""
         try:
@@ -301,7 +418,7 @@ class VectorStore:
             self.index = faiss.IndexFlatL2(self.dimension)
             self.documents = []
             raise
-
+    
     def delete_vector_store(self, path: str = None):
         """
         Delete vector store files with comprehensive logging and error handling.
@@ -355,87 +472,3 @@ class VectorStore:
         except Exception as e:
             self.logger.error(f"Unexpected error during vector store deletion: {str(e)}")
             raise
-
-    def _preprocess_text(self, text: str) -> str:
-        """Preprocess text for better embedding and search.
-        
-        Args:
-            text: Input text to preprocess
-        
-        Returns:
-            Preprocessed text
-        """
-        # Remove excessive whitespace
-        text = ' '.join(text.split())
-        
-        # Truncate very long texts
-        max_length = 2000
-        if len(text) > max_length:
-            text = text[:max_length]
-        
-        return text
-
-    def _get_embedding(self, text: str) -> np.ndarray:
-        """Generate embedding with comprehensive error handling and fallback."""
-        try:
-            # Validate input
-            if not text or not isinstance(text, str):
-                self.logger.warning(f"Invalid input for embedding: {type(text)}")
-                return np.zeros((1, self.dimension), dtype=np.float32)
-            
-            # Preprocess text
-            preprocessed_text = self._preprocess_text(text)
-            
-            # Truncate text if too long
-            max_text_length = 2000  # Adjust based on model limitations
-            preprocessed_text = preprocessed_text[:max_text_length]
-            
-            # Use API key from environment or Streamlit secrets
-            api_key = os.getenv('GOOGLE_API_KEY') or st.secrets.get('GOOGLE_API_KEY')
-            if not api_key:
-                raise ValueError("No API key found for embedding generation")
-            
-            # Configure API
-            genai.configure(api_key=api_key)
-            
-            # Generate embedding
-            try:
-                embedding_model = 'models/embedding-001'
-                result = genai.embed_content(
-                    model=embedding_model,
-                    content=preprocessed_text,
-                    task_type='retrieval_document'
-                )
-                
-                # Validate embedding
-                if not result or 'embedding' not in result:
-                    raise ValueError("No embedding generated")
-                
-                # Convert to numpy array and ensure correct shape
-                embedding = np.array(result['embedding'], dtype=np.float32)
-                
-                # Reshape if needed
-                if embedding.ndim == 1:
-                    embedding = embedding.reshape(1, -1)
-                
-                # Validate dimension
-                if embedding.shape[1] != self.dimension:
-                    self.logger.warning(f"Embedding dimension mismatch. Resizing from {embedding.shape[1]} to {self.dimension}")
-                    # Resize or pad embedding
-                    if embedding.shape[1] < self.dimension:
-                        padded_embedding = np.zeros((1, self.dimension), dtype=np.float32)
-                        padded_embedding[0, :embedding.shape[1]] = embedding
-                        embedding = padded_embedding
-                    else:
-                        embedding = embedding[:, :self.dimension]
-                
-                return embedding
-            
-            except Exception as e:
-                self.logger.error(f"Embedding generation error: {str(e)}")
-                # Fallback: return zero embedding
-                return np.zeros((1, self.dimension), dtype=np.float32)
-        
-        except Exception as e:
-            self.logger.error(f"Unexpected error in embedding generation: {str(e)}")
-            return np.zeros((1, self.dimension), dtype=np.float32)
